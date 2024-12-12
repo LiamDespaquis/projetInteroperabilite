@@ -1,25 +1,30 @@
-# CakePHP 3
-
-/vendor/*
-/config/app.php
-
-/tmp/cache/models/*
-!/tmp/cache/models/empty
-/tmp/cache/persistent/*
-!/tmp/cache/persistent/empty
-/tmp/cache/views/*
-!/tmp/cache/views/empty
-/tmp/sessions/*
-!/tmp/sessions/empty
-/tmp/tests/*
-!/tmp/tests/empty
-
-/logs/*
-!/logs/empty
-
-# CakePHP 2
-
-/app/tmp/*
-/app/Config/core.php
-/app/Config/database.php
-/vendors/*
+.idea/
+*config.ini
+*Config.ini
+# IDE
+.vscode/
+app/.DS_STORE
+.DS_STORE
+.DS_Store
+app/.DS_Store
+/coverage/
+# Vendor
+/vendor/
+vendor
+*.iml
+.idea
+*.env
+# Logs
+/app/logs/*
+/app/var/*
+app/var/logs
+!/app/logs/README.md
+/app/vendor
+# Cache
+/var/cache/*
+.phpunit.result.cache
+cache.properties
+.php_cs.cache
+# Composer
+composer.phar
+composer.lock
