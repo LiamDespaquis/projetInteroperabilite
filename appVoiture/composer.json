@@ -1,0 +1,17 @@
+{
+    "name": "gaetan/app-voiture",
+    "description": "faut-il prendre la voiture?",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Gaetan\\AppVoiture\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Gaetan Pinot",
+            "email": "gaetan.pinot6@etu.univ-lorraine.fr"
+        }
+    ],
+    "require": {}
+}
