@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Vélo </title>
+    <!-- Ajouter le lien vers le CSS de Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+        /* Définir la taille de la carte */
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Prendre le Vélo aujourd'hui ? </h1>
+        </header>
+
+        <section id="weather">
+            <h2>Conditions Météorologiques</h2>
+            <p><strong>Température :</strong> <span id="temperature">Placeholder Temp</span> °C</p>
+            <p><strong>Vitesse du vent :</strong> <span id="wind">Placeholder Wind</span> km/h</p>
+            <p><strong>Pluie :</strong> <span id="rain">Placeholder Rain</span> mm</p>
+        </section>
+
+        <section id="pollution">
+            <h2>Niveau de Pollution</h2>
+            <p><strong>Indice de pollution :</strong> <span id="pollutionLevel">Placeholder Pollution</span></p>
+        </section>
+
+        <section id="map-container">
+            <h2> Carte des vélos en libre service</h2>
+            <div id="map"></div>
+        </section>
+    </div>
+
+    <!-- Ajouter le script Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script type="module" src="index.js"></script>
+</body>
+</html>
