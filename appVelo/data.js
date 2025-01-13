@@ -29,7 +29,6 @@ const getMeteoData = async function(lat, lon) {
       
           const data = await response.json();
         const date = getPreviousAvailableTime()
-        console.log(date)
         return data[date]
 }
 
@@ -93,7 +92,10 @@ const getStationInfo = async function() {
 }
 
 const getPollutionData = async function() {
-
+    return fetchData(consts.basePollutionUrl)
+        .then(response => response.json()).then((data) => {
+            return data
+        })
 }
 
 const fetchData = async function(url) {
@@ -116,6 +118,43 @@ function getPreviousAvailableTime() {
     const formattedDate = now.toISOString().slice(0, 19).replace("T", " ");
     return formattedDate;
   }
+
+  // Fonction de calcul de la distance entre deux points (en kilomètres) en utilisant la formule de Haversine
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Rayon de la Terre en kilomètres
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance en kilomètres
+}
+
+// Comme nous n'avons pas réussi à manipuler l'API pour la pollution de l'air, on a fait au mieux pour fournir le résultat le plus pertinant avec les données fournies 
+const getMostRecentNearbyRecord = async function(dataList, y,x) {
+    let nearestData = null;
+    let maxDate = -Infinity;
+    let minDistanceKM = Infinity;
+
+    for (let data of dataList) {
+        let attributesData = data.attributes
+        
+        
+        const distance = calculateDistance(attributesData.y_wgs84, attributesData.x_wgs84, y, x);
+        
+        // Vérifier si l'objet est à proximité du point
+        if (distance < minDistanceKM || (distance == minDistanceKM && attributesData.date_ech > maxDate && attributesData.date_ech < Date.now())) {
+            minDistanceKM = distance
+            maxDate = attributesData.date_ech;
+            nearestData = attributesData;
+        }
+    }
+    return nearestData;
+}
+
   
   
   
@@ -125,5 +164,6 @@ export default {
     getMeteoData,
     getVeloStations,
     getStationInfo,
-    getPollutionData
+    getPollutionData, 
+    getMostRecentNearbyRecord
   };
