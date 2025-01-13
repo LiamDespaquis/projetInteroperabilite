@@ -143,7 +143,6 @@ if ($res === false) {
     $lon = $xml->lon;
     $ville = $xml->city;
     if ($ville != "Nancy") {
-        echo "Ville pas Nancy ($ville)\n";
         $lat = $latIut;
         $lon = $longIut;
     }
