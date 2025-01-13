@@ -1,8 +1,9 @@
 services:
   php:
-    image: canals/php
+    # image: canals/php
+    build: .
     volumes:
       - ./:/var/www/html
     # command: php -S 0.0.0.0:80 -t /var/www/html
     ports:
-    - 1088:80
+    - 1089:80
