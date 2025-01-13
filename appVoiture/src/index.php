@@ -152,6 +152,28 @@ if($status != "200") {
     $xsltProcessor->importStylesheet($styleDomDocument);
     $htmlMeteo = $xsltProcessor->transformToDoc($xmlMeteo)->saveHTML();
 }
+
+$urlPollution = "https://services3.arcgis.com/Is0UwT37raQYl9Jj/arcgis/rest/services/ind_grandest/FeatureServer/0/query?where=lib_zone%3D%27Nancy%27&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&returnGeodetic=false&outFields=*&returnGeometry=true&featureEncoding=esriDefault&multipatchOption=xyFootprint&maxAllowableOffset=&geometryPrecision=&outSR=&datumTransformation=&applyVCSProjection=false&returnIdsOnly=false&returnUniqueIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnQueryGeometry=false&returnDistinctValues=false&cacheHint=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=pjson&token=";
+$resPollution = file_get_contents($urlPollution);
+$status = explode(' ', $http_response_header[0])[1];
+if($status != "200") {
+} else {
+    $jsonPollution = json_decode($resPollution, true);
+    /*var_dump($jsonPollution);*/
+    $long = count($jsonPollution["features"]);
+    $attribut = $jsonPollution["features"][$long - 1]["attributes"];
+    $qualite = $attribut["lib_qual"];
+    $coul = $attribut["coul_qual"];
+
+    $qualiteAirHtml = <<<END
+
+  <h2>Qualité de l'air à Nancy</h2>
+  <p style="color:$coul"><b>$qualite</b></p>
+
+
+END;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -167,8 +189,10 @@ crossorigin=""/>
 </head>
 
 <body>
-<div id="map" style="height:30em"></div>
+    <h1>Map des points de difficultés dans Nancy</h1>
+<div id="map" style="height:37em"></div>
     <?php echo $htmlMeteo ?>
+    <?php echo $qualiteAirHtml ?>
 </body>
 <script>
 <?php
@@ -179,6 +203,10 @@ let map = L.map('map').setView([lat, lon], 13);
 let marker = L.marker([lat, lon]).addTo(map);
 marker.bindPopup("Vous êtes ici").openPopup();
 
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
 let markerIncident = null;
 <?php
 $jsonIncident = file_get_contents('https://carto.g-ny.org/data/cifs/cifs_waze_v2.json');
@@ -199,9 +227,5 @@ if($status == 200) {
     }
 }
 ?>
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-}).addTo(map);
 
 </script>
