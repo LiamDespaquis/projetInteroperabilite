@@ -7,13 +7,6 @@ use XSLTProcessor;
 
 require_once __DIR__ . "/../vendor/autoload.php";
 
-
-$urlAPILoc = "http://ip-api.com/xml/";
-$urlApiInfoStation = "https://api.cyclocity.fr/contracts/nancy/gbfs/station_information.json";
-$ipClient = $_SERVER['REMOTE_ADDR'];
-$ipClient = "193.50.135.206"; //nancy
-/*$ipClient = "172.217.20.174";*/ //paris
-
 $xsltMeteo = <<<END
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
@@ -110,18 +103,38 @@ $xsltMeteo = <<<END
 </xsl:stylesheet>
 
 END;
+
+$urlAPILoc = "http://ip-api.com/xml/";
+$urlApiInfoStation = "https://api.cyclocity.fr/contracts/nancy/gbfs/station_information.json";
+if(isset($_SERVER['REMOTE_ADDR'])) {
+    $ipClient = $_SERVER['REMOTE_ADDR'];
+} else {
+    $ipClient = "193.50.135.206"; //nancy
+}
+
+$ch = curl_init();
+
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return response as a string
+curl_setopt($ch, CURLOPT_HEADER, false); // Optional: Exclude the header in the output
+
+curl_setopt($ch, CURLOPT_PROXY, 'www-cache'); // Proxy address
+curl_setopt($ch, CURLOPT_PROXYPORT, 3128); // Proxy port
+curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP); // Proxy type (HTTP)
+
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Disable peer verification
+curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // Disable host verification
+
+
 $latIut = 48.68285708780425;
 $longIut = 6.161036265989825;
 
-//coo client
-$res = file_get_contents($urlAPILoc . $ipClient);
-$status = explode(' ', $http_response_header[0])[1];
+curl_setopt($ch, CURLOPT_URL, $urlAPILoc. $ipClient); // Set the URL
 
-if ($status != "200") {
-    echo "Status ip pas ok ($status)";
+$res = curl_exec($ch);
+
+if ($res === false) {
     $lat = $latIut;
     $lon = $longIut;
-    return 1;
 } else {
     $xml = simplexml_load_string($res);
     /*var_dump($xml);*/
@@ -134,15 +147,15 @@ if ($status != "200") {
         $lat = $latIut;
         $lon = $longIut;
     }
-    $loc = "$lat,$lon";
 }
 
+$loc = "$lat,$lon";
 $urlInfoClimat = "https://www.infoclimat.fr/public-api/gfs/xml?_auth=ARsDFFIsBCZRfFtsD3lSe1Q8ADUPeVRzBHgFZgtuAH1UMQNgUTNcPlU5VClSfVZkUn8AYVxmVW0Eb1I2WylSLgFgA25SNwRuUT1bPw83UnlUeAB9DzFUcwR4BWMLYwBhVCkDb1EzXCBVOFQoUmNWZlJnAH9cfFVsBGRSPVs1UjEBZwNkUjIEYVE6WyYPIFJjVGUAZg9mVD4EbwVhCzMAMFQzA2JRMlw5VThUKFJiVmtSZQBpXGtVbwRlUjVbKVIuARsDFFIsBCZRfFtsD3lSe1QyAD4PZA%3D%3D&_c=19f3aa7d766b6ba91191c8be71dd1ab2&_ll=";
 
-$resInfoClimat = file_get_contents($urlInfoClimat . $loc);
-$status = explode(' ', $http_response_header[0])[1];
-if($status != "200") {
-    echo "Status meteo pas ok ($status)";
+curl_setopt($ch, CURLOPT_URL, $urlInfoClimat.$loc);
+$resInfoClimat = curl_exec($ch);
+if($resInfoClimat === false) {
+    $htmlMeteo = "<p>Erreur lors de la récupération des données météo</p>";
 } else {
     $xmlMeteo = simplexml_load_string($resInfoClimat);
     /*var_dump($xmlMeteo->echeance[2]);*/
@@ -154,9 +167,10 @@ if($status != "200") {
 }
 
 $urlPollution = "https://services3.arcgis.com/Is0UwT37raQYl9Jj/arcgis/rest/services/ind_grandest/FeatureServer/0/query?where=lib_zone%3D%27Nancy%27&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&returnGeodetic=false&outFields=*&returnGeometry=true&featureEncoding=esriDefault&multipatchOption=xyFootprint&maxAllowableOffset=&geometryPrecision=&outSR=&datumTransformation=&applyVCSProjection=false&returnIdsOnly=false&returnUniqueIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnQueryGeometry=false&returnDistinctValues=false&cacheHint=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=pjson&token=";
-$resPollution = file_get_contents($urlPollution);
-$status = explode(' ', $http_response_header[0])[1];
-if($status != "200") {
+curl_setopt($ch, CURLOPT_URL, $urlPollution);
+$resPollution = curl_exec($ch);
+if($resPollution === false) {
+    $qualiteAirHtml = "<p>Erreur lors de la récupération des données de pollution</p>";
 } else {
     $jsonPollution = json_decode($resPollution, true);
     /*var_dump($jsonPollution);*/
@@ -209,9 +223,10 @@ marker.bindPopup("Vous êtes ici").openPopup();
 }).addTo(map);
 let markerIncident = null;
 <?php
-$jsonIncident = file_get_contents('https://carto.g-ny.org/data/cifs/cifs_waze_v2.json');
-$status = explode(' ', $http_response_header[0])[1];
-if($status == 200) {
+$urlIncident = "https://carto.g-ny.org/data/cifs/cifs_waze_v2.json";
+curl_setopt($ch, CURLOPT_URL, $urlIncident);
+$jsonIncident = curl_exec($ch);
+if($jsonIncident !== false) {
     $incidents = json_decode($jsonIncident, true);
     //var_dump($incidents);
     foreach($incidents["incidents"] as $incident) {
@@ -229,3 +244,6 @@ if($status == 200) {
 ?>
 
 </script>
+<?php
+curl_close($ch);
+?>
