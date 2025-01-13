@@ -1,0 +1,207 @@
+<?php
+
+namespace Gaetan\AppVoiture;
+
+use DOMDocument;
+use XSLTProcessor;
+
+require_once __DIR__ . "/../vendor/autoload.php";
+
+
+$urlAPILoc = "http://ip-api.com/xml/";
+$urlApiInfoStation = "https://api.cyclocity.fr/contracts/nancy/gbfs/station_information.json";
+$ipClient = $_SERVER['REMOTE_ADDR'];
+$ipClient = "193.50.135.206"; //nancy
+/*$ipClient = "172.217.20.174";*/ //paris
+
+$xsltMeteo = <<<END
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:output method="html" doctype-public="-//W3C//DTD HTML 4.01 Transitional//EN" doctype-system="http://www.w3.org/TR/html4/loose.dtd" indent="yes" />
+
+  <xsl:template match="/">
+    <html>
+      <head>
+        <title>Prévisions Météo</title>
+        <style>
+          body { font-family: Arial, sans-serif; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+          th { background-color: #f4f4f4; }
+        </style>
+      </head>
+      <body>
+        <h1>Prévisions Météo</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>Heure</th>
+              <th>Température (°C)</th>
+              <th>Humidité</th>
+              <th>Vent Moyen (10m)</th>
+              <th>Rafales (10m)</th>
+              <th>Direction du Vent</th>
+              <th>Risque de Pluie</th>
+              <th>Risque de Neige</th>
+            </tr>
+          </thead>
+          <tbody>
+            <xsl:apply-templates select="previsions/echeance[position() &lt;= 8]"/>
+          </tbody>
+        </table>
+      </body>
+    </html>
+  </xsl:template>
+
+  <xsl:template match="echeance">
+    <tr>
+      <td>
+        <xsl:value-of select="substring(@timestamp, 12, 5)"/>h, <xsl:value-of select="substring(@timestamp, 9, 2)"/> 
+        <xsl:choose>
+          <xsl:when test="substring(@timestamp, 6, 2) = '01'">Janvier</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '02'">Février</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '03'">Mars</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '04'">Avril</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '05'">Mai</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '06'">Juin</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '07'">Juillet</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '08'">Août</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '09'">Septembre</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '10'">Octobre</xsl:when>
+          <xsl:when test="substring(@timestamp, 6, 2) = '11'">Novembre</xsl:when>
+          <xsl:otherwise>Décembre</xsl:otherwise>
+        </xsl:choose>
+        <xsl:value-of select="substring(@timestamp, 1, 4)"/>
+      </td>
+      <td>
+        <xsl:value-of select="format-number(temperature/level[@val='2m'] - 273.15, '#.0')"/> °C
+      </td>
+      <td>
+        <xsl:value-of select="humidite/level[@val='2m']"/> %
+      </td>
+      <td>
+        <xsl:value-of select="vent_moyen/level[@val='10m']"/> km/h
+      </td>
+      <td>
+        <xsl:value-of select="vent_rafales/level[@val='10m']"/> km/h
+      </td>
+      <td>
+        <xsl:choose>
+          <xsl:when test="vent_direction/level[@val='10m'] &lt; 22.5 or vent_direction/level[@val='10m'] &gt;= 337.5">Nord</xsl:when>
+          <xsl:when test="vent_direction/level[@val='10m'] &gt;= 22.5 and vent_direction/level[@val='10m'] &lt; 67.5">Nord-Est</xsl:when>
+          <xsl:when test="vent_direction/level[@val='10m'] &gt;= 67.5 and vent_direction/level[@val='10m'] &lt; 112.5">Est</xsl:when>
+          <xsl:when test="vent_direction/level[@val='10m'] &gt;= 112.5 and vent_direction/level[@val='10m'] &lt; 157.5">Sud-Est</xsl:when>
+          <xsl:when test="vent_direction/level[@val='10m'] &gt;= 157.5 and vent_direction/level[@val='10m'] &lt; 202.5">Sud</xsl:when>
+          <xsl:when test="vent_direction/level[@val='10m'] &gt;= 202.5 and vent_direction/level[@val='10m'] &lt; 247.5">Sud-Ouest</xsl:when>
+          <xsl:when test="vent_direction/level[@val='10m'] &gt;= 247.5 and vent_direction/level[@val='10m'] &lt; 292.5">Ouest</xsl:when>
+          <xsl:otherwise>Nord-Ouest</xsl:otherwise>
+        </xsl:choose>
+      </td>
+      <td>
+        <xsl:value-of select="pluie"/> mm
+      </td>
+      <td>
+        <xsl:value-of select="risque_neige"/>
+      </td>
+    </tr>
+  </xsl:template>
+
+</xsl:stylesheet>
+
+END;
+$latIut = 48.68285708780425;
+$longIut = 6.161036265989825;
+
+//coo client
+$res = file_get_contents($urlAPILoc . $ipClient);
+$status = explode(' ', $http_response_header[0])[1];
+
+if ($status != "200") {
+    echo "Status ip pas ok ($status)";
+    $lat = $latIut;
+    $lon = $longIut;
+    return 1;
+} else {
+    $xml = simplexml_load_string($res);
+    /*var_dump($xml);*/
+
+    $lat = $xml->lat;
+    $lon = $xml->lon;
+    $ville = $xml->city;
+    if ($ville != "Nancy") {
+        echo "Ville pas Nancy ($ville)\n";
+        $lat = $latIut;
+        $lon = $longIut;
+    }
+    $loc = "$lat,$lon";
+}
+
+$urlInfoClimat = "https://www.infoclimat.fr/public-api/gfs/xml?_auth=ARsDFFIsBCZRfFtsD3lSe1Q8ADUPeVRzBHgFZgtuAH1UMQNgUTNcPlU5VClSfVZkUn8AYVxmVW0Eb1I2WylSLgFgA25SNwRuUT1bPw83UnlUeAB9DzFUcwR4BWMLYwBhVCkDb1EzXCBVOFQoUmNWZlJnAH9cfFVsBGRSPVs1UjEBZwNkUjIEYVE6WyYPIFJjVGUAZg9mVD4EbwVhCzMAMFQzA2JRMlw5VThUKFJiVmtSZQBpXGtVbwRlUjVbKVIuARsDFFIsBCZRfFtsD3lSe1QyAD4PZA%3D%3D&_c=19f3aa7d766b6ba91191c8be71dd1ab2&_ll=";
+
+$resInfoClimat = file_get_contents($urlInfoClimat . $loc);
+$status = explode(' ', $http_response_header[0])[1];
+if($status != "200") {
+    echo "Status meteo pas ok ($status)";
+} else {
+    $xmlMeteo = simplexml_load_string($resInfoClimat);
+    /*var_dump($xmlMeteo->echeance[2]);*/
+    $xsltProcessor = new XSLTProcessor();
+    $styleDomDocument = new DOMDocument();
+    $styleDomDocument->loadXML($xsltMeteo);
+    $xsltProcessor->importStylesheet($styleDomDocument);
+    $htmlMeteo = $xsltProcessor->transformToDoc($xmlMeteo)->saveHTML();
+}
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Accueil</title>
+ <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+crossorigin=""/>
+ <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+</head>
+
+<body>
+<div id="map" style="height:30em"></div>
+    <?php echo $htmlMeteo ?>
+</body>
+<script>
+<?php
+echo "let lat = $lat;\n";
+echo "let lon = $lon;\n";
+?>
+let map = L.map('map').setView([lat, lon], 13);
+let marker = L.marker([lat, lon]).addTo(map);
+marker.bindPopup("Vous êtes ici").openPopup();
+
+let markerIncident = null;
+<?php
+$jsonIncident = file_get_contents('https://carto.g-ny.org/data/cifs/cifs_waze_v2.json');
+$status = explode(' ', $http_response_header[0])[1];
+if($status == 200) {
+    $incidents = json_decode($jsonIncident, true);
+    //var_dump($incidents);
+    foreach($incidents["incidents"] as $incident) {
+        $latLong = explode(" ", $incident["location"]["polyline"]);
+        $latIncidents = $latLong[0];
+        $longIncidents = $latLong[1];
+        $date = new \DateTime($incident["creationtime"]);
+        $date = $date->format('d/m/Y');
+        $desc = $incident["short_description"];
+        $rue = $incident["location"]["street"];
+        echo "markerIncident = L.marker([$latIncidents, $longIncidents]).addTo(map);\n";
+        echo "markerIncident.bindPopup(`$desc\\n$rue\\n $date`);\n";
+    }
+}
+?>
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+</script>
